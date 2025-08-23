@@ -89,7 +89,9 @@ export class PDFService {
   }
 
   async generateFromHTML(options: ConversionOptions): Promise<Buffer> {
-    const chromePath = await this.getChromePath();
+    // Prefer environment variable for Chrome path, then fall back to system detection
+    const envChromePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_BIN || process.env.CHROME_PATH;
+    const chromePath = envChromePath || await this.getChromePath();
 
     const launchOptions: any = {
       headless: true,
@@ -100,13 +102,42 @@ export class PDFService {
         '--disable-gpu',
         '--no-first-run',
         '--no-zygote',
-        '--single-process'
+        '--single-process',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-features=TranslateUI',
+        '--disable-ipc-flooding-protection',
+        '--disable-background-networking',
+        '--disable-default-apps',
+        '--disable-extensions',
+        '--disable-sync',
+        '--disable-translate',
+        '--hide-scrollbars',
+        '--metrics-recording-only',
+        '--mute-audio',
+        '--no-default-browser-check',
+        '--safebrowsing-disable-auto-update',
+        '--ignore-certificate-errors',
+        '--ignore-ssl-errors',
+        '--ignore-certificate-errors-spki-list',
+        '--ignore-ssl-errors-list',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-crash-reporter',
+        '--disable-in-process-stack-traces',
+        '--disable-logging',
+        '--log-level=3',
+        '--silent'
       ]
     };
 
-    // If system Chrome is found, use it; otherwise puppeteer will use bundled Chromium
+    // Use Chrome path if available
     if (chromePath) {
       launchOptions.executablePath = chromePath;
+      console.log(`Using Chrome at: ${chromePath}`);
+    } else {
+      console.log('Using bundled Chromium');
     }
 
     const browser = await puppeteer.launch(launchOptions);

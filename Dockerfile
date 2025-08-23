@@ -5,8 +5,12 @@ LABEL maintainer="HTML to PDF Microservice"
 LABEL description="A Node.js microservice that converts HTML to PDF using Puppeteer"
 LABEL version="1.0.0"
 
-# Install dependencies for Puppeteer
+# Install dependencies for Puppeteer and Chrome
 RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    gnupg \
+    ca-certificates \
     fonts-liberation \
     gconf-service \
     libappindicator1 \
@@ -39,8 +43,7 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     libxtst6 \
     xdg-utils \
-    wget \
-    curl \
+    && apt-get install -y chromium \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -49,6 +52,13 @@ WORKDIR /usr/src/app
 
 # Set cache directory for Puppeteer
 ENV PUPPETEER_CACHE_DIR=/tmp/puppeteer
+
+# Chromium configuration for container environment
+ENV CHROME_BIN=/usr/bin/chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV CHROME_PATH=/usr/bin/chromium
+ENV DISPLAY=:99
 
 # Create non-root user and cache directory
 RUN groupadd -r appuser && useradd -r -g appuser appuser
