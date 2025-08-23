@@ -1,0 +1,14 @@
+version: "3"
+
+services:
+  html-to-pdf:
+    build: .
+    ports:
+      - "3050:3050"
+    environment:
+      - NODE_ENV=development
+      - PORT=3050
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./dist:/usr/src/app/dist
+    command: npm run dev

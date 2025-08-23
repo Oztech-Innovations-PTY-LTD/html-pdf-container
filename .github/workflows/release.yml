@@ -1,0 +1,53 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+          body: |
+            ## What's Changed
+
+            This release includes:
+            - HTML to PDF conversion microservice
+            - Docker container support
+            - RESTful API endpoints
+            - Health check monitoring
+
+            ## Container Image
+
+            The container image is available at:
+            `ghcr.io/${{ github.repository }}:${{ github.ref_name }}`
+
+                        ## Usage
+
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            docker run -p 3050:3050 ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ```
+
+            ## API Endpoints
+
+            - `POST /api/convert` - Convert HTML to PDF
+            - `GET /api/health` - Health check
+
+            ## Documentation
+
+            See the [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for full documentation.

@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  html-to-pdf:
+    image: ghcr.io/${GITHUB_REPOSITORY:-your-username/html-pdf-container}:latest
+    ports:
+      - "3050:3050"
+    environment:
+      - NODE_ENV=production
+      - PORT=3050
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3050/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
