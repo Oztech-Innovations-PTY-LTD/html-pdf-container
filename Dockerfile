@@ -66,8 +66,8 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
-# Remove dev dependencies and source files to reduce image size
-RUN rm -rf src/ node_modules/ && npm ci --only=production
+# # Remove dev dependencies and source files to reduce image size
+# RUN rm -rf src/ node_modules/ && npm ci --only=production
 
 USER appuser
 
