@@ -43,21 +43,15 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     libxtst6 \
     xdg-utils \
-    && apt-get install -y chromium \
+
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 # Create app directory
 WORKDIR /usr/src/app
 
-# Set cache directory for Puppeteer
+# Puppeteer configuration for container environment
 ENV PUPPETEER_CACHE_DIR=/tmp/puppeteer
-
-# Chromium configuration for container environment
-ENV CHROME_BIN=/usr/bin/chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-ENV CHROME_PATH=/usr/bin/chromium
 ENV DISPLAY=:99
 
 # Create non-root user and cache directory

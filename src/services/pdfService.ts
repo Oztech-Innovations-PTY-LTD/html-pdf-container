@@ -89,24 +89,32 @@ export class PDFService {
   }
 
   async generateFromHTML(options: ConversionOptions): Promise<Buffer> {
-    // Prefer environment variable for Chrome path, then fall back to system detection
-    const envChromePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_BIN || process.env.CHROME_PATH;
-    const chromePath = envChromePath || await this.getChromePath();
+    // Use bundled Chromium for better container compatibility
+    console.log('Using Puppeteer bundled Chromium for container environment');
 
     const launchOptions: any = {
-      headless: true,
+      headless: 'new',
+      timeout: 30000,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-crash-reporter',
+        '--disable-crashpad',
+        '--disable-breakpad',
+        '--disable-in-process-stack-traces',
+        '--disable-logging',
+        '--log-level=3',
+        '--silent',
         '--no-first-run',
         '--no-zygote',
         '--single-process',
         '--disable-background-timer-throttling',
         '--disable-backgrounding-occluded-windows',
         '--disable-renderer-backgrounding',
-        '--disable-features=TranslateUI',
         '--disable-ipc-flooding-protection',
         '--disable-background-networking',
         '--disable-default-apps',
@@ -122,23 +130,18 @@ export class PDFService {
         '--ignore-ssl-errors',
         '--ignore-certificate-errors-spki-list',
         '--ignore-ssl-errors-list',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-crash-reporter',
-        '--disable-in-process-stack-traces',
-        '--disable-logging',
-        '--log-level=3',
-        '--silent'
+        '--disable-component-extensions-with-background-pages',
+        '--disable-hang-monitor',
+        '--disable-popup-blocking',
+        '--disable-prompt-on-repost',
+        '--enable-automation',
+        '--password-store=basic',
+        '--use-mock-keychain'
       ]
     };
 
-    // Use Chrome path if available
-    if (chromePath) {
-      launchOptions.executablePath = chromePath;
-      console.log(`Using Chrome at: ${chromePath}`);
-    } else {
-      console.log('Using bundled Chromium');
-    }
+    // Don't specify executablePath to use bundled Chromium
+    // This is more reliable in container environments
 
     const browser = await puppeteer.launch(launchOptions);
 
