@@ -47,6 +47,15 @@ RUN apt-get update && apt-get install -y \
 # Create app directory
 WORKDIR /usr/src/app
 
+# Set environment variables BEFORE installing packages
+ENV NODE_ENV=production
+ENV PORT=3050
+ENV PUPPETEER_CACHE_DIR=/tmp/puppeteer
+
+# Create non-root user and cache directory
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN mkdir -p /tmp/puppeteer && chown -R appuser:appuser /tmp/puppeteer
+
 # Copy package files and install dependencies
 COPY package*.json ./
 RUN npm ci && npm cache clean --force
@@ -60,12 +69,6 @@ RUN npm run build
 # Remove dev dependencies and source files to reduce image size
 RUN rm -rf src/ node_modules/ && npm ci --only=production
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3050
-
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
 USER appuser
 
 # Expose port

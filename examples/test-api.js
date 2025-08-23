@@ -6,7 +6,7 @@ const axios = require('axios');
 const htmlContent = fs.readFileSync(path.join(__dirname, 'sample.html'), 'utf8');
 
 // Configuration
-const API_URL = 'http://localhost:3050/api/convert';
+const API_URL = 'http://100.80.0.56:3050/api/convert';
 const OUTPUT_FILE = path.join(__dirname, 'output.pdf');
 
 async function convertHtml() {
