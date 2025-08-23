@@ -95,61 +95,26 @@ export class PDFService {
     const userDataDir = process.env.CHROME_USER_DATA_DIR || '/home/appuser/chrome-user-data';
     const crashDumpsDir = process.env.CHROME_CRASH_DIR || '/home/appuser/chrome-crash';
     const diskCacheDir = process.env.CHROME_CACHE_DIR || '/home/appuser/chrome-cache';
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
 
     const launchOptions: any = {
       headless: 'new',
       timeout: 30000,
+      executablePath,
       userDataDir,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-crash-reporter',
-        '--disable-crashpad',
-        '--disable-breakpad',
-        '--disable-in-process-stack-traces',
-        '--disable-logging',
-        '--log-level=3',
-        '--silent',
         '--no-first-run',
         '--no-zygote',
-        '--single-process',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-ipc-flooding-protection',
-        '--disable-background-networking',
-        '--disable-default-apps',
-        '--disable-extensions',
-        '--disable-sync',
-        '--disable-translate',
-        '--hide-scrollbars',
-        '--metrics-recording-only',
-        '--mute-audio',
-        '--no-default-browser-check',
-        '--safebrowsing-disable-auto-update',
-        '--ignore-certificate-errors',
-        '--ignore-ssl-errors',
-        '--ignore-certificate-errors-spki-list',
-        '--ignore-ssl-errors-list',
         `--user-data-dir=${userDataDir}`,
         `--crash-dumps-dir=${crashDumpsDir}`,
-        `--disk-cache-dir=${diskCacheDir}`,
-        '--disable-component-extensions-with-background-pages',
-        '--disable-hang-monitor',
-        '--disable-popup-blocking',
-        '--disable-prompt-on-repost',
-        '--enable-automation',
-        '--password-store=basic',
-        '--use-mock-keychain'
+        `--disk-cache-dir=${diskCacheDir}`
       ]
     };
 
-    // Don't specify executablePath to use bundled Chromium
-    // This is more reliable in container environments
+    // Use system Chromium with minimal, proven container flags
 
     const browser = await puppeteer.launch(launchOptions);
 

@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
     ca-certificates \
+    chromium \
     fonts-liberation \
     gconf-service \
     libappindicator1 \
@@ -52,6 +53,8 @@ WORKDIR /usr/src/app
 # Puppeteer/Chromium configuration for container environment
 ENV PUPPETEER_CACHE_DIR=/tmp/puppeteer
 ENV DISPLAY=:99
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV HOME=/home/appuser
 ENV XDG_CONFIG_HOME=/home/appuser/.config
 ENV XDG_CACHE_HOME=/home/appuser/.cache
