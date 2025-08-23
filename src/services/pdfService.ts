@@ -15,8 +15,8 @@ export class PDFService {
     // Windows Chrome paths
     if (platform === 'win32') {
       const windowsPaths = [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        'C\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
         process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
         process.env.PROGRAMFILES + '\\Google\\Chrome\\Application\\chrome.exe',
         process.env['PROGRAMFILES(X86)'] + '\\Google\\Chrome\\Application\\chrome.exe'
@@ -92,9 +92,14 @@ export class PDFService {
     // Use bundled Chromium for better container compatibility
     console.log('Using Puppeteer bundled Chromium for container environment');
 
+    const userDataDir = process.env.CHROME_USER_DATA_DIR || '/home/appuser/chrome-user-data';
+    const crashDumpsDir = process.env.CHROME_CRASH_DIR || '/home/appuser/chrome-crash';
+    const diskCacheDir = process.env.CHROME_CACHE_DIR || '/home/appuser/chrome-cache';
+
     const launchOptions: any = {
       headless: 'new',
       timeout: 30000,
+      userDataDir,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -130,6 +135,9 @@ export class PDFService {
         '--ignore-ssl-errors',
         '--ignore-certificate-errors-spki-list',
         '--ignore-ssl-errors-list',
+        `--user-data-dir=${userDataDir}`,
+        `--crash-dumps-dir=${crashDumpsDir}`,
+        `--disk-cache-dir=${diskCacheDir}`,
         '--disable-component-extensions-with-background-pages',
         '--disable-hang-monitor',
         '--disable-popup-blocking',
