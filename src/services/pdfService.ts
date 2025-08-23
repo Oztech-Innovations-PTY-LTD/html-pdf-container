@@ -1,6 +1,7 @@
-import puppeteer, { PDFOptions } from 'puppeteer';
-import { execSync } from 'child_process';
+import puppeteer, { PDFOptions, Browser } from 'puppeteer';
 import * as os from 'os';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 export interface ConversionOptions extends PDFOptions {
   url?: string;
@@ -9,116 +10,32 @@ export interface ConversionOptions extends PDFOptions {
 }
 
 export class PDFService {
-  private async getChromePath(): Promise<string | undefined> {
-    const platform = os.platform();
-
-    // Windows Chrome paths
-    if (platform === 'win32') {
-      const windowsPaths = [
-        'C\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
-        process.env.PROGRAMFILES + '\\Google\\Chrome\\Application\\chrome.exe',
-        process.env['PROGRAMFILES(X86)'] + '\\Google\\Chrome\\Application\\chrome.exe'
-      ];
-
-      for (const path of windowsPaths) {
-        try {
-          if (path && require('fs').existsSync(path)) {
-            return path;
-          }
-        } catch (e) {
-          continue;
-        }
-      }
-    }
-
-    // MacOS Chrome paths
-    if (platform === 'darwin') {
-      const macPaths = [
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        '/Applications/Chromium.app/Contents/MacOS/Chromium'
-      ];
-
-      for (const path of macPaths) {
-        try {
-          execSync(`test -f "${path}"`);
-          return path;
-        } catch (e) {
-          continue;
-        }
-      }
-    }
-
-    // Linux Chrome paths
-    if (platform === 'linux') {
-      const linuxPaths = [
-        '/usr/bin/google-chrome',
-        '/usr/bin/google-chrome-stable',
-        '/usr/bin/chromium-browser',
-        '/usr/bin/chromium'
-      ];
-
-      for (const path of linuxPaths) {
-        try {
-          execSync(`test -f "${path}"`);
-          return path;
-        } catch (e) {
-          continue;
-        }
-      }
-    }
-
-    // Try to find Chrome using system commands
-    try {
-      if (platform === 'win32') {
-        // Windows: try to find Chrome using where command
-        const chromePath = execSync('where chrome', { encoding: 'utf8' }).trim().split('\n')[0];
-        if (chromePath) return chromePath;
-      } else {
-        // Unix-like: try to find Chrome using which command
-        const chromePath = execSync('which google-chrome', { encoding: 'utf8' }).trim();
-        if (chromePath) return chromePath;
-      }
-    } catch (e) {
-      // Ignore errors from system commands
-    }
-
-    // Return undefined if no system Chrome found - puppeteer will use bundled Chromium
-    return undefined;
-  }
-
   async generateFromHTML(options: ConversionOptions): Promise<Buffer> {
     // Use bundled Chromium for better container compatibility
     console.log('Using Puppeteer bundled Chromium for container environment');
 
-    const userDataDir = process.env.CHROME_USER_DATA_DIR || '/home/appuser/chrome-user-data';
-    const crashDumpsDir = process.env.CHROME_CRASH_DIR || '/home/appuser/chrome-crash';
-    const diskCacheDir = process.env.CHROME_CACHE_DIR || '/home/appuser/chrome-cache';
     const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
+
+    // Create a unique temporary user data directory per conversion to avoid SingletonLock
+    const tempUserDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'puppeteer-user-data-'));
 
     const launchOptions: any = {
       headless: 'new',
       timeout: 30000,
       executablePath,
-      userDataDir,
+      userDataDir: tempUserDataDir,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--no-first-run',
-        '--no-zygote',
-        `--user-data-dir=${userDataDir}`,
-        `--crash-dumps-dir=${crashDumpsDir}`,
-        `--disk-cache-dir=${diskCacheDir}`
+        '--no-zygote'
       ]
     };
 
-    // Use system Chromium with minimal, proven container flags
-
-    const browser = await puppeteer.launch(launchOptions);
-
+    let browser: Browser | null = null;
     try {
+      browser = await puppeteer.launch(launchOptions);
       const page = await browser.newPage();
 
       if (options.url) {
@@ -154,7 +71,11 @@ export class PDFService {
       const pdfBuffer = await page.pdf(pdfOptions);
       return pdfBuffer;
     } finally {
-      await browser.close();
+      if (browser) {
+        await browser.close();
+      }
+      // Clean up the temporary user data directory
+      await fs.rm(tempUserDataDir, { recursive: true, force: true });
     }
   }
 } 
