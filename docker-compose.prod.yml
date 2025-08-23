@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   html-to-pdf:
-    image: ghcr.io/${GITHUB_REPOSITORY:-your-username/html-pdf-container}:latest
+    image: ghcr.io/terraseraph/html-pdf-container:latest
     ports:
       - "3050:3050"
     environment:
