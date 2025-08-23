@@ -20,7 +20,7 @@ export class PDFService {
     const tempUserDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'puppeteer-user-data-'));
 
     const launchOptions: any = {
-      headless: 'new',
+      headless: true,
       timeout: 30000,
       executablePath,
       userDataDir: tempUserDataDir,
