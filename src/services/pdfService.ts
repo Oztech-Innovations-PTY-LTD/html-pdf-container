@@ -1,4 +1,4 @@
-import puppeteer, { PDFOptions, Browser, Page } from 'puppeteer';
+import puppeteer, { PDFOptions, Browser, BrowserContext, Page } from 'puppeteer';
 import * as os from 'os';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -51,8 +51,9 @@ interface BrowserHandle {
 }
 
 /**
- * Keeps one Chromium running and reuses it for every conversion; each conversion gets its own tab.
- * (Separate browser contexts per request cost ~1s each and serialise, so tabs share the default one.)
+ * Keeps one Chromium running and reuses it for every conversion. Each conversion gets its own
+ * browser context (like a private window, ~0.3s), so cookies, storage and service workers from one
+ * request are never visible to another.
  */
 class BrowserPool {
   private current: BrowserHandle | null = null;
@@ -63,7 +64,7 @@ class BrowserPool {
   async run<T>(job: (page: Page) => Promise<T>): Promise<T> {
     await this.acquireSlot();
     let handle: BrowserHandle | null = null;
-    let page: Page | null = null;
+    let context: BrowserContext | null = null;
     try {
       handle = await this.getBrowser();
       handle.active++;
@@ -72,11 +73,11 @@ class BrowserPool {
         // Newer requests get a fresh browser; this one closes once its in-flight jobs finish
         this.retire(handle);
       }
-      page = await handle.browser.newPage();
-      return await job(page);
+      context = await handle.browser.createBrowserContext();
+      return await job(await context.newPage());
     } finally {
-      if (page) {
-        await page.close().catch(err => console.error('Failed to close page:', err));
+      if (context) {
+        await context.close().catch(err => console.error('Failed to close browser context:', err));
       }
       if (handle) {
         handle.active--;
@@ -204,13 +205,14 @@ export const browserPool = new BrowserPool();
 
 /**
  * Load the page and wait like Puppeteer's waitUntil option. networkidle0/2 are done by waiting for
- * 'load' and then for the network to be idle for 500ms, tracked by Puppeteer: Chromium's own
- * networkIdle event never fires for some tabs when several render at once in one browser.
+ * the document to be parsed and then for the network to be idle for 500ms, tracked by Puppeteer:
+ * Chromium's own networkIdle event never fires for some tabs when several render at once in one
+ * browser. The load event is not required, as with the built-in networkidle options.
  */
 async function loadPage(page: Page, options: ConversionOptions): Promise<void> {
   const waitUntil = options.waitUntil || 'networkidle0';
   const idleConcurrency = waitUntil === 'networkidle0' ? 0 : waitUntil === 'networkidle2' ? 2 : -1;
-  const navWaitUntil = idleConcurrency >= 0 ? 'load' : waitUntil;
+  const navWaitUntil = idleConcurrency >= 0 ? 'domcontentloaded' : waitUntil;
   const started = Date.now();
 
   if (options.url) {
