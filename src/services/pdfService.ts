@@ -1,4 +1,4 @@
-import puppeteer, { PDFOptions, Browser, BrowserContext } from 'puppeteer';
+import puppeteer, { PDFOptions, Browser, Page } from 'puppeteer';
 import * as os from 'os';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -39,6 +39,9 @@ const LAUNCH_ARGS = [
   '--no-zygote'
 ];
 
+// Matches the old per-request timeout for loading the page
+const NAVIGATION_TIMEOUT_MS = 30000;
+
 interface BrowserHandle {
   browser: Browser;
   userDataDir: string;
@@ -48,8 +51,8 @@ interface BrowserHandle {
 }
 
 /**
- * Keeps one Chromium running and reuses it for every conversion. Each conversion gets its own
- * browser context (like a private window), so cookies and storage never leak between requests.
+ * Keeps one Chromium running and reuses it for every conversion; each conversion gets its own tab.
+ * (Separate browser contexts per request cost ~1s each and serialise, so tabs share the default one.)
  */
 class BrowserPool {
   private current: BrowserHandle | null = null;
@@ -57,10 +60,10 @@ class BrowserPool {
   private running = 0;
   private waiting: Array<{ resolve: () => void; reject: (err: Error) => void; timer: NodeJS.Timeout }> = [];
 
-  async run<T>(job: (context: BrowserContext) => Promise<T>): Promise<T> {
+  async run<T>(job: (page: Page) => Promise<T>): Promise<T> {
     await this.acquireSlot();
     let handle: BrowserHandle | null = null;
-    let context: BrowserContext | null = null;
+    let page: Page | null = null;
     try {
       handle = await this.getBrowser();
       handle.active++;
@@ -69,11 +72,11 @@ class BrowserPool {
         // Newer requests get a fresh browser; this one closes once its in-flight jobs finish
         this.retire(handle);
       }
-      context = await handle.browser.createBrowserContext();
-      return await job(context);
+      page = await handle.browser.newPage();
+      return await job(page);
     } finally {
-      if (context) {
-        await context.close().catch(err => console.error('Failed to close browser context:', err));
+      if (page) {
+        await page.close().catch(err => console.error('Failed to close page:', err));
       }
       if (handle) {
         handle.active--;
@@ -199,24 +202,37 @@ class BrowserPool {
 
 export const browserPool = new BrowserPool();
 
+/**
+ * Load the page and wait like Puppeteer's waitUntil option. networkidle0/2 are done by waiting for
+ * 'load' and then for the network to be idle for 500ms, tracked by Puppeteer: Chromium's own
+ * networkIdle event never fires for some tabs when several render at once in one browser.
+ */
+async function loadPage(page: Page, options: ConversionOptions): Promise<void> {
+  const waitUntil = options.waitUntil || 'networkidle0';
+  const idleConcurrency = waitUntil === 'networkidle0' ? 0 : waitUntil === 'networkidle2' ? 2 : -1;
+  const navWaitUntil = idleConcurrency >= 0 ? 'load' : waitUntil;
+  const started = Date.now();
+
+  if (options.url) {
+    await page.goto(options.url, { waitUntil: navWaitUntil, timeout: NAVIGATION_TIMEOUT_MS });
+  } else {
+    await page.setContent(options.html as string, { waitUntil: navWaitUntil, timeout: NAVIGATION_TIMEOUT_MS });
+  }
+
+  if (idleConcurrency >= 0) {
+    const remaining = Math.max(1000, NAVIGATION_TIMEOUT_MS - (Date.now() - started));
+    await page.waitForNetworkIdle({ idleTime: 500, concurrency: idleConcurrency, timeout: remaining });
+  }
+}
+
 export class PDFService {
   async generateFromHTML(options: ConversionOptions): Promise<Buffer> {
     if (!options.url && !options.html) {
       throw new Error('Either URL or HTML content must be provided');
     }
 
-    return browserPool.run(async context => {
-      const page = await context.newPage();
-
-      if (options.url) {
-        await page.goto(options.url, {
-          waitUntil: options.waitUntil || 'networkidle0'
-        });
-      } else if (options.html) {
-        await page.setContent(options.html, {
-          waitUntil: options.waitUntil || 'networkidle0'
-        });
-      }
+    return browserPool.run(async page => {
+      await loadPage(page, options);
 
       // Default PDF options
       const pdfOptions: PDFOptions = {
