@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PDFService, ConversionOptions } from '../services/pdfService';
+import { PDFService, ConversionOptions, QueueFullError } from '../services/pdfService';
 
 export class PDFController {
   private pdfService: PDFService;
@@ -32,7 +32,7 @@ export class PDFController {
       res.send(pdfBuffer);
     } catch (error) {
       console.error('PDF conversion error:', error);
-      res.status(500).json({ 
+      res.status(error instanceof QueueFullError ? 503 : 500).json({ 
         error: 'Failed to convert to PDF',
         message: error instanceof Error ? error.message : 'Unknown error'
       });
